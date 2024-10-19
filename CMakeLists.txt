@@ -8,7 +8,7 @@ cmake_minimum_required(
 # Minor version incremented each distinct file I write
 # Major version incremented for each major feature added (i.e rending/physics engine complete)
 project(e3d
-    VERSION 0.0.2
+    VERSION 0.0.3
     LANGUAGES C)
 
 # OpenGL Requirement
