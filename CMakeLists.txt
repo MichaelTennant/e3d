@@ -3,12 +3,8 @@
 cmake_minimum_required(
     VERSION 3.30.0)
 
-# VERSIONING SCHEME (I KNOW IT'S BAD - IT'S A HOBBY PROJECT, I AIN'T HAVE NO API RN)
-# Patch version incremented each day I work on the project
-# Minor version incremented each distinct file I write
-# Major version incremented for each major feature added (i.e rending/physics engine complete)
 project(e3d
-    VERSION 0.0.3
+    VERSION 0.0.4
     LANGUAGES C)
 
 # OpenGL Requirement

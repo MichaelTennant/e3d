@@ -3,6 +3,7 @@
  * DAY 1 - Version 0.0.1
  * HOW DOES THIS WORK!?!?
  * I spent too long working on it it and I'm both asstonished and apauled by what fixed it
+ * Most of the problems where with my CMakeLists.txt file tbf
  * Completed up to chapter 5.3
  *
  * Day 2 - Version 0.0.2 
@@ -21,8 +22,20 @@
  *  Completed up to chapter 6.5 - I'm programming in C I'm not gonna make my own shader
  *      class like suggested in chapter 6.6, but I'll prob write my own functions to 
  *      compile and use them...
+ *
+ *  Day 4 - Version 0.0.4
+ *  Modified the maths of the rainbow triangle look better but it still doesn't rotate 
+ *      as wanted - it's good enough though...
+ *  Added second triangle - easier than expected, will add entire cube
+ *  OH GOD I SPENT 6 HOURS TRAVELING TODAY - I AM DEAD
+ *  Made cube rotate - WHERE TF IS CUBE, ARE ONLY 2 TRIANGLES BEING RENDERED???
+ *      ... All of the faces are being rendered now - but that's defo not a cube...
+ *  Fixed it! Just a few problems with the rotation algorithm
+ *      ... Although it is definatley rendering sides of the cube that it shouldn't
+ *      ... Will fix tmrw - it's getting pretty late and I am decked after that trip...
  */
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -30,51 +43,78 @@
 #include <GLFW/glfw3.h>
 
 /* GLSL Shaders */
-const char* SIMPLE_VERTEX_SHADER_SRC =                                      \
-    "#version 330 core                                                  \n" \
-    "layout (location = 0) in vec3 aPos;                                \n" \
-    "void main() {                                                      \n" \
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);               \n" \
-    "}                                                                  \0";
+const char* SIMPLE_VERTEX_SHADER_SRC =                          \
+    "#version 330 core                                      \n" \
+    "layout (location = 0) in vec3 aPos;                    \n" \
+    "void main() {                                          \n" \
+    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);   \n" \
+    "}                                                      \0";
 
-const char* SIMPLE_FRAGMENT_SHADER_SRC =                                    \
-    "#version 330 core                                                  \n" \
-    "out vec4 fragColor;                                                \n" \
-    "void main() {                                                      \n" \
-    "   fragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);                       \n" \
-    "}                                                                  \0";
+const char* SIMPLE_FRAGMENT_SHADER_SRC =                        \
+    "#version 330 core                                      \n" \
+    "out vec4 fragColor;                                    \n" \
+    "void main() {                                          \n" \
+    "   fragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);           \n" \
+    "}                                                      \0";
 
-const char* RAINBOW_VERTEX_SHADER_SRC =                                     \
-    "#version 330 core                                                  \n" \
-    "layout (location = 0) in vec3 aPos;                                \n" \
-    "layout (location = 1) in vec3 aColor;                              \n" \
-    "out vec3 fragInColor;                                              \n" \
-    "void main() {                                                      \n" \
-    "   gl_Position = vec4(aPos, 1.0f);                                 \n" \
-    "   fragInColor = aColor;                                           \n" \
-    "}                                                                  \0";
+const char* RAINBOW_VERTEX_SHADER_SRC =                         \
+    "#version 330 core                                      \n" \
+    "layout (location = 0) in vec3 aPos;                    \n" \
+    "layout (location = 1) in vec3 aColor;                  \n" \
+    "out vec3 fragInColor;                                  \n" \
+    "void main() {                                          \n" \
+    "   gl_Position = vec4(aPos, 1.0f);                     \n" \
+    "   fragInColor = aColor;                               \n" \
+    "}                                                      \0";
 
-const char* STATIC_RAINBOW_FRAGMENT_SHADER_SRC =                            \
-    "#version 330 core                                                  \n" \
-    "in vec3 fragInColor;                                               \n" \
-    "out vec4 fragColor;                                                \n" \
-    "void main() {                                                      \n" \
-    "   fragColor = vec4(fragInColor, 1.0f);                            \n" \
-    "}                                                                  \0";
+const char* STATIC_RAINBOW_FRAGMENT_SHADER_SRC =                \
+    "#version 330 core                                      \n" \
+    "in vec3 fragInColor;                                   \n" \
+    "out vec4 fragColor;                                    \n" \
+    "void main() {                                          \n" \
+    "   fragColor = vec4(fragInColor, 1.0f);                \n" \
+    "}                                                      \0";
 
-const char* CHANGING_RAINBOW_FRAGMENT_SHADER_SRC =                          \
-    "#version 330 core                                                  \n" \
-    "in vec3 fragInColor;                                               \n" \
-    "uniform float time;                                                \n" \
-    "out vec4 fragColor;                                                \n" \
-    "void main() {                                                      \n" \
-    "   fragColor = vec4(                                               \n" \
-    "       0.5f * sin(asin(2 * fragInColor.x - 1.0f) + time) + 0.5f,   \n" \
-    "       0.5f * sin(asin(2 * fragInColor.y - 1.0f) + time) + 0.5f,   \n" \
-    "       0.5f * sin(asin(2 * fragInColor.z - 1.0f) + time) + 0.5f,   \n" \
-    "       1.0f                                                        \n" \
-    "   );                                                              \n" \
-    "}                                                                  \0";
+const char* CHANGING_RAINBOW_FRAGMENT_SHADER_SRC =              \
+    "#version 330 core                                      \n" \
+    "in vec3 fragInColor;                                   \n" \
+    "uniform float time;                                    \n" \
+    "out vec4 fragColor;                                    \n" \
+    "void main() {                                          \n" \
+    "   fragColor = vec4(                                   \n" \
+    "       max(sin(fragInColor.x + time), 0.0f),           \n" \
+    "       max(sin(fragInColor.y + time), 0.0f),           \n" \
+    "       max(sin(fragInColor.z + time), 0.0f),           \n" \
+    "       1.0f                                            \n" \
+    "   );                                                  \n" \
+    "}                                                      \0";
+
+// TODO PROJECTION
+const char* CUBE_RAINBOW_VERTEX_SHADER_SRC =                    \
+    "#version 330 core                                      \n" \
+    "layout (location = 0) in vec3 aPos;                    \n" \
+    "layout (location = 1) in vec3 aColor;                  \n" \
+    "uniform float time;                                    \n" \
+    "out vec3 fragInColor;                                  \n" \
+    "void main() {                                          \n" \
+    "   vec3 theta = vec3(3*time, 2*time, time);            \n" \
+    "   float a = aPos.y * sin(theta.z)                     \n" \
+    "               + aPos.x * cos(theta.z);                \n" \
+    "   float b = aPos.y * cos(theta.z)                     \n" \
+    "               - aPos.x * sin(theta.z);                \n" \
+    "   float c = aPos.z * cos(theta.y)                     \n" \
+    "               + sin(theta.y) * a;                     \n" \
+    "   gl_Position = vec4(                                 \n" \
+    "       0.5 * (cos(theta.y)*a - aPos.z*sin(theta.y)),   \n" \
+    "       0.5 * (sin(theta.x)*c + cos(theta.x)*b),        \n" \
+    "       0.5 * (cos(theta.x)*c - sin(theta.x)*b),        \n" \
+    "       1.0f                                            \n" \
+    "   );                                                  \n" \
+    "   fragInColor = aColor;                               \n" \
+    "}                                                      \0";
+
+#define PI2BY3 2.0f * M_PI / 3.0f
+#define PI4BY3 4.0f * M_PI / 3.0f
 
 void processInput(GLFWwindow* window) {
     /* Close window if escape key pressed */
@@ -85,15 +125,37 @@ void processInput(GLFWwindow* window) {
 int main() {
     GLFWwindow* window;
 
-    /* Triangle Verticies - now with extra colors */
-    float vertices[18] = {
-        -0.5f, -0.5f, 0.0f,  1.0f,  0.0f,  0.0f, 
-         0.5f, -0.5f, 0.0f,  0.0f,  1.0f,  0.0f, 
-         0.0f,  0.5f, 0.0f,  0.0f,  0.0f,  1.0f
+    /* Cube Verticies - now with extra colors */
+    float vertices[] = {
+        -1.0f, -1.0f, -1.0f,  0.0f,   PI2BY3, PI4BY3,
+        -1.0f, -1.0f,  1.0f,  PI4BY3, 0.0f,   PI2BY3,
+        -1.0f,  1.0f, -1.0f,  PI2BY3, PI4BY3, 0.0f,
+        -1.0f,  1.0f,  1.0f,  0.0f,   PI2BY3, PI4BY3, 
+         1.0f, -1.0f, -1.0f,  PI4BY3, 0.0f,   PI2BY3,
+         1.0f, -1.0f,  1.0f,  PI2BY3, PI4BY3, 0.0f,
+         1.0f,  1.0f, -1.0f,  0.0f,   PI2BY3, PI4BY3,
+         1.0f,  1.0f,  1.0f,  PI4BY3, 0.0f,   PI2BY3
+    };
+
+    /* Cube Edges */
+    unsigned int indicies [] = {
+        2, 6, 7, 
+        2, 7, 3, 
+        2, 3, 1, 
+        2, 1, 0, 
+        3, 7, 5, 
+        3, 5, 1, 
+        7, 6, 4, 
+        7, 4, 5, 
+        1, 5, 4, 
+        1, 4, 0, 
+        0, 4, 6, 
+        0, 6, 2, 
     };
 
     unsigned int VBO;   // Vertex Buffer Object
     unsigned int VAO;   // Vertex Array Object
+    unsigned int EBO;   // Edge Buffer Object
     unsigned int vertexShader;
     unsigned int fragmentShader;
     unsigned int shaderProgram;
@@ -135,9 +197,14 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+    /* Same thing for EBO */
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicies), indicies, GL_STATIC_DRAW);
+
     /* Compile Vertex Shaders */
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &RAINBOW_VERTEX_SHADER_SRC, NULL);
+    glShaderSource(vertexShader, 1, &CUBE_RAINBOW_VERTEX_SHADER_SRC, NULL);
     glCompileShader(vertexShader);
 
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
@@ -213,7 +280,10 @@ int main() {
 
         /* Render the triangle*/
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // glDrawArrays(GL_TRIANGLES, 0, 3);
+        
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glDrawElements(GL_TRIANGLES, sizeof(indicies), GL_UNSIGNED_INT, 0);
 
         /* Update window (like pygames flip()) */
         glfwSwapBuffers(window);
